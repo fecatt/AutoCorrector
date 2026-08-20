@@ -54,9 +54,6 @@ try:
     from win11toast import toast  # noqa: F401
 except ImportError:
     _missing.append("win11toast")
-# pysocks импортируется лениво — только при использовании SOCKS-прокси
-socks = None
-
 if _missing:
     print("Отсутствуют библиотеки: " + ", ".join(_missing))
     print("Попытка автоматической установки...")
@@ -169,9 +166,9 @@ def _validate_config(cfg: dict) -> None:
 
     # Проверка proxy — если задан, должен быть валидным URL
     proxy = api_cfg.get("proxy", "")
-    if proxy and not proxy.startswith(("http://", "https://", "socks4://", "socks5://")):
+    if proxy and not proxy.startswith(("http://", "https://")):
         print(
-            f"ОШИБКА: Прокси-сервер должен начинаться с http://, https://, socks4:// или socks5://.\n"
+            f"ОШИБКА: Прокси-сервер должен начинаться с http:// или https://.\n"
             f"  Текущее значение: {proxy}\n"
             f"  Исправьте api.proxy в config.yaml."
         )
@@ -710,20 +707,7 @@ def correct_text(
 
     for attempt in range(1, max_retries + 1):
         try:
-            proxies = None
-            if API_PROXY:
-                if API_PROXY.startswith(("socks4://", "socks5://")):
-                    global socks
-                    if socks is None:
-                        try:
-                            import socks as _socks
-                            socks = _socks
-                        except ImportError:
-                            raise ImportError(
-                                "Для работы через SOCKS-прокси необходима библиотека pysocks.\n"
-                                "Установите: pip install pysocks"
-                            )
-                proxies = {"https": API_PROXY, "http": API_PROXY}
+            proxies = {"https": API_PROXY, "http": API_PROXY} if API_PROXY else None
             response = requests.post(
                 API_URL, headers=headers, json=data, timeout=API_TIMEOUT,
                 verify=True,  # Принудительная проверка SSL-сертификата
