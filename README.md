@@ -12,6 +12,8 @@
 
 ## English
 
+> ℹ️ **The program interface is in Russian only.** This English section describes the same functionality for reference. All notifications, error messages, and console output will be in Russian.
+
 > ⚠️ **Windows-only** — this application uses Windows API (RegisterHotKey, WinRT toast notifications, Windows Registry) and does not work on macOS or Linux.
 
 ### What is it
@@ -119,13 +121,18 @@ hotkeys:
 
 ### Troubleshooting
 
-| Message | Cause | Solution |
-|---------|-------|----------|
-| «Failed to register hotkey» | Combination is taken by another program | Change the combination in [`config.yaml`](config.yaml) |
-| «Text limit exceeded» | Text is longer than `max_text_length` | Shorten the text or increase the limit |
-| «Failed to copy selected text» | Text is not selected or the app doesn't support copying | Make sure text is selected |
-| «API error» | Internet issues or invalid key | Check your connection and API key |
-| «No changes» | Text has no errors | Everything is fine, no paste needed |
+All notifications are shown in Russian. Below are the actual messages with their meaning:
+
+| Notification (Russian) | Meaning | Solution |
+|------------------------|---------|----------|
+| «❌ Горячая клавиша не зарегистрирована» | Hotkey combination is taken by another program | Change the combination in [`config.yaml`](config.yaml) |
+| «⚠️ Превышен лимит текста» | Text is longer than `max_text_length` | Shorten the text or increase the limit |
+| «❌ Не удалось скопировать текст» | Text is not selected or the app doesn't support copying | Make sure text is selected |
+| «❌ Ошибка при обращении к API» | Internet issues or invalid API key | Check your connection and API key in [`config.yaml`](config.yaml) |
+| «✅ Текст без ошибок» | Text has no errors | Everything is fine, no paste needed |
+| «✅ Текст исправлен» | Text was corrected and pasted back | — |
+| «❌ Ошибка буфера обмена» | Failed to paste corrected text to clipboard | Restart the program |
+| «🚀 AutoCorrector готов к работе» | Program started successfully | — |
 
 ### File Structure
 

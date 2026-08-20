@@ -51,7 +51,7 @@ notifications:
 # Все поля внутри записи горячей клавиши опциональны — если не заданы,
 # используются глобальные значения api.*.
 hotkeys:
-  - name: "Коррекция текста"
+  - name: "Correction"
     ctrl: true
     alt: true
     shift: false
@@ -63,7 +63,7 @@ hotkeys:
     #   Свой промт для этой комбинации...
 
   # Пример второй комбинации — для рерайта / перевода и т.д.
-  # - name: "Рерайт"
+  # - name: "Reroll"
   #   ctrl: true
   #   alt: true
   #   shift: true
