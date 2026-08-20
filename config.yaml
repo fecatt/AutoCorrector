@@ -9,7 +9,7 @@ api:
   model: "google/gemma-4-31b-it"
   temperature: 0.3
   timeout: 60
-  # Прокси-сервер для API-запросов (например "http://user:pass@host:port" или "" для прямого подключения)
+  # Прокси-сервер для API-запросов (например "https://user:pass@host:port" или "" для прямого подключения)
   proxy: ""
   system_prompt: |
     You are a professional text proofreader and editor.
@@ -39,6 +39,7 @@ notifications:
   on_processing_start: true    # Начало обработки текста ("Обработка [name]...")
   on_success: true             # Текст исправлен успешно ("Текст исправлен ✓")
   on_no_changes: true          # Текст не содержит ошибок ("Без изменений")
+  check_updates: true          # Проверять обновления при запуске
 
 # Горячие клавиши — каждая комбинация может переопределять model, system_prompt,
 # temperature и другие настройки API из секции [api] выше.

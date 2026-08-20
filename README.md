@@ -1,4 +1,4 @@
-# AutoCorrector
+# AutoCorrector v1.0
 
 ![Platform](https://img.shields.io/badge/platform-Windows%2010%2F11-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
@@ -28,6 +28,7 @@ AutoCorrector is a system-wide text correction tool powered by AI (OpenRouter AP
 - **Clipboard history-safe** — corrected text is pasted without polluting Win+V history
 - **Autostart** — can launch automatically at Windows login (background, no console window)
 - **Windows toast notifications** — real-time status updates via native notifications
+- **Update checker** — checks for new versions on startup, click the notification to open GitHub
 
 ### Requirements
 
@@ -39,8 +40,8 @@ AutoCorrector is a system-wide text correction tool powered by AI (OpenRouter AP
 
 1. Clone the repository:
    ```
-   git clone https://github.com/your-username/autocorrector.git
-   cd autocorrector
+   git clone https://github.com/fecatt/AutoCorrector.git
+   cd AutoCorrector
    ```
 
 2. Open [`config.yaml`](config.yaml) and enter your API key:
@@ -133,6 +134,7 @@ All notifications are shown in Russian. Below are the actual messages with their
 | «✅ Текст исправлен» | Text was corrected and pasted back | — |
 | «❌ Ошибка буфера обмена» | Failed to paste corrected text to clipboard | Restart the program |
 | «🚀 AutoCorrector готов к работе» | Program started successfully | — |
+| «🔄 Доступно обновление» | New version available on GitHub | Click the notification to open GitHub and download |
 
 ### File Structure
 
@@ -182,8 +184,8 @@ AutoCorrector — программа для автоматического ис�
 
 1. Клонируйте репозиторий:
    ```
-   git clone https://github.com/your-username/autocorrector.git
-   cd autocorrector
+   git clone https://github.com/fecatt/AutoCorrector.git
+   cd AutoCorrector
    ```
 
 2. Откройте [`config.yaml`](config.yaml) и укажите ваш API-ключ:

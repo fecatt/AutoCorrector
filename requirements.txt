@@ -2,3 +2,4 @@ requests>=2.28.0
 pyyaml>=6.0
 pyperclip>=1.8.2
 win11toast>=0.35
+# pysocks>=1.7.1  # Опционально: только для SOCKS-прокси (pip install pysocks)

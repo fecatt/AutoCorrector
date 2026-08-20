@@ -8,6 +8,8 @@ AutoCorrector — автоисправление текста через OpenRou
 Конфигурация хранится в config.yaml рядом со скриптом.
 """
 
+__version__ = "1.0.0"
+
 import os
 import re
 import sys
@@ -52,6 +54,8 @@ try:
     from win11toast import toast  # noqa: F401
 except ImportError:
     _missing.append("win11toast")
+# pysocks импортируется лениво — только при использовании SOCKS-прокси
+socks = None
 
 if _missing:
     print("Отсутствуют библиотеки: " + ", ".join(_missing))
@@ -64,6 +68,7 @@ if _missing:
             stderr=subprocess.DEVNULL,
         )
         print("Зависимости успешно установлены!")
+        print("Пожалуйста, перезапустите программу.")
     except Exception as exc:
         print(
             "Не удалось установить зависимости автоматически.\n"
@@ -71,6 +76,7 @@ if _missing:
             "Установите вручную:\n  pip install " + " ".join(_missing)
         )
         sys.exit(1)
+    sys.exit(0)
 
 # =========================
 # КОНФИГУРАЦИЯ
@@ -85,8 +91,15 @@ def _load_config() -> dict:
         print(f"Файл конфигурации не найден: {CONFIG_PATH}")
         sys.exit(1)
 
-    with open(CONFIG_PATH, encoding="utf-8") as fh:
-        cfg = yaml.safe_load(fh)
+    try:
+        with open(CONFIG_PATH, encoding="utf-8") as fh:
+            cfg = yaml.safe_load(fh)
+    except yaml.YAMLError as exc:
+        print(f"ОШИБКА: Не удалось распарсить config.yaml.\n  {exc}")
+        sys.exit(1)
+    if not isinstance(cfg, dict):
+        print("ОШИБКА: config.yaml должен содержать словарь на верхнем уровне.")
+        sys.exit(1)
 
     # Валидация обязательных полей
     api_cfg = cfg.get("api", {})
@@ -164,11 +177,9 @@ def _validate_config(cfg: dict) -> None:
         )
         sys.exit(1)
 
-    # Проверка API ключа — не должен быть пустым или placeholder
+    # Проверка API ключа — уже выполнена в _load_config()
+    # (дополнительная проверка на неполный ключ)
     key = api_cfg.get("key", "")
-    if not key or key.strip() == "":
-        print("ОШИБКА: API ключ не задан. Откройте config.yaml и укажите поле api.key.")
-        sys.exit(1)
     if key.startswith("sk-or-v1-") and len(key) < 20:
         print("ОШИБКА: API ключ выглядит неполным. Проверьте значение api.key в config.yaml.")
         sys.exit(1)
@@ -228,7 +239,9 @@ def _parse_hotkeys() -> list[dict]:
     Если hotkeys нет — создаёт одну запись из старого формата hotkey.
     """
     raw = _CFG.get("hotkeys")
-    if raw and isinstance(raw, list):
+    if raw and isinstance(raw, (list, dict)):
+        if isinstance(raw, dict):
+            raw = [raw]
         return raw
 
     # Обратная совместимость: старый формат single hotkey
@@ -247,22 +260,53 @@ def _merge_hotkey(hk: dict) -> dict:
     """
     Объединяет настройки горячей клавиши с глобальными defaults.
     Возвращает полный конфиг для конкретной комбинации.
+    Выбрасывает ValueError при отсутствии обязательного поля 'key'.
     """
-    return {
+    if not hk.get("key", "").strip():
+        raise ValueError(
+            f"Горячая клавиша [{hk.get('name', '?')}] не имеет поля 'key'. "
+            f"Укажите ключ в config.yaml."
+        )
+
+    merged = {
         "model": hk.get("model", API_MODEL),
         "temperature": hk.get("temperature", API_TEMPERATURE),
         "system_prompt": hk.get("system_prompt", API_SYSTEM_PROMPT),
         "max_text_length": hk.get("max_text_length", MAX_TEXT_LENGTH),
+        "max_retries": hk.get("max_retries", MAX_RETRIES),
         "name": hk.get("name", hk.get("key", "?")),
         "ctrl": hk.get("ctrl", False),
         "alt": hk.get("alt", False),
         "shift": hk.get("shift", False),
         "win": hk.get("win", False),
-        "key": hk.get("key", ""),
+        "key": hk.get("key", "").strip(),
     }
 
+    # Валидация переопределённых значений
+    temp = merged["temperature"]
+    if not isinstance(temp, (int, float)) or temp < 0 or temp > 2:
+        raise ValueError(
+            f"Горячая клавиша [{merged['name']}]: temperature={temp} вне диапазона [0, 2]"
+        )
+    mtl = merged["max_text_length"]
+    if not isinstance(mtl, int) or mtl <= 0:
+        raise ValueError(
+            f"Горячая клавиша [{merged['name']}]: max_text_length={mtl} должно быть положительным целым"
+        )
+    mr = merged["max_retries"]
+    if not isinstance(mr, int) or mr <= 0:
+        raise ValueError(
+            f"Горячая клавиша [{merged['name']}]: max_retries={mr} должно быть положительным целым"
+        )
 
-HOTKEYS: list[dict] = [_merge_hotkey(h) for h in _parse_hotkeys()]
+    return merged
+
+
+try:
+    HOTKEYS: list[dict] = [_merge_hotkey(h) for h in _parse_hotkeys()]
+except ValueError as exc:
+    print(f"ОШИБКА: {exc}")
+    sys.exit(1)
 
 # =========================
 # ЛОГИРОВАНИЕ
@@ -390,6 +434,8 @@ def _set_clipboard_raw(format_id: int, data: bytes) -> bool:
     При неудаче — память освобождается здесь.
     Возвращает True при успехе.
     """
+    if format_id == 0:
+        return False
     h_mem = kernel32.GlobalAlloc(GMEM_MOVEABLE, len(data))
     if not h_mem:
         return False
@@ -500,10 +546,19 @@ def _get_clip(retries: int = 3, delay: float = 0.1) -> str:
 # ФОКУС ОКНА
 # =========================
 
+SW_RESTORE  = 9
+SW_SHOW     = 5
+
+
 def _bring_to_front(hwnd: int) -> bool:
     """Активирует окно hwnd без изменения позиции и размера."""
     if not hwnd:
         return False
+
+    # Если окно свёрнуто — сначала разворачиваем
+    if user32.IsIconic(hwnd):
+        user32.ShowWindow(hwnd, SW_RESTORE)
+        time.sleep(0.2)
 
     # Способ 1: AttachThreadInput + SetForegroundWindow
     try:
@@ -565,7 +620,7 @@ def copy_selected(hwnd: int) -> str:
     user32.SendMessageW(target, WM_COPY, 0, 0)
     time.sleep(0.25)
     new_clip = _get_clip()
-    if new_clip and new_clip != old_clip and new_clip.strip():
+    if new_clip and new_clip.strip() and new_clip != old_clip:
         log.info("Копия: WM_COPY")
         return new_clip
 
@@ -573,7 +628,7 @@ def copy_selected(hwnd: int) -> str:
     user32.PostMessageW(target, WM_COMMAND, IDM_COPY, 0)
     time.sleep(0.25)
     new_clip = _get_clip()
-    if new_clip and new_clip != old_clip and new_clip.strip():
+    if new_clip and new_clip.strip() and new_clip != old_clip:
         log.info("Копия: WM_COMMAND")
         return new_clip
 
@@ -585,7 +640,7 @@ def copy_selected(hwnd: int) -> str:
             _ctrl_key(VK_C)
             time.sleep(0.3)
             new_clip = _get_clip()
-            if new_clip and new_clip != old_clip and new_clip.strip():
+            if new_clip and new_clip.strip() and new_clip != old_clip:
                 log.info("Копия: Ctrl+C (попытка %d)", attempt)
                 return new_clip
 
@@ -596,7 +651,7 @@ def copy_selected(hwnd: int) -> str:
         _ctrl_key(VK_INSERT)
         time.sleep(0.3)
         new_clip = _get_clip()
-        if new_clip and new_clip != old_clip and new_clip.strip():
+        if new_clip and new_clip.strip() and new_clip != old_clip:
             log.info("Копия: Ctrl+Insert")
             return new_clip
 
@@ -609,12 +664,14 @@ def copy_selected(hwnd: int) -> str:
 # =========================
 
 def paste_to(hwnd: int) -> None:
-    """Вставляет текст из буфера обмена в окно hwnd."""
+    """Вставляет текст из буфера обмена в окно hwnd.
+
+    Используем только Ctrl+V — универсальный способ для большинства приложений.
+    WM_PASTE не используется, т.к. он может не работать в нестандартных контролах,
+    а совместное использование WM_PASTE + Ctrl+V приводит к двойной вставке.
+    """
     time.sleep(0.15)
     try:
-        target = _get_focused_control(hwnd)
-        user32.SendMessageW(target, WM_PASTE, 0, 0)
-        time.sleep(0.3)
         if _bring_to_front(hwnd):
             time.sleep(0.15)
             _ctrl_key(VK_V)
@@ -653,7 +710,20 @@ def correct_text(
 
     for attempt in range(1, max_retries + 1):
         try:
-            proxies = {"https": API_PROXY, "http": API_PROXY} if API_PROXY else None
+            proxies = None
+            if API_PROXY:
+                if API_PROXY.startswith(("socks4://", "socks5://")):
+                    global socks
+                    if socks is None:
+                        try:
+                            import socks as _socks
+                            socks = _socks
+                        except ImportError:
+                            raise ImportError(
+                                "Для работы через SOCKS-прокси необходима библиотека pysocks.\n"
+                                "Установите: pip install pysocks"
+                            )
+                proxies = {"https": API_PROXY, "http": API_PROXY}
             response = requests.post(
                 API_URL, headers=headers, json=data, timeout=API_TIMEOUT,
                 verify=True,  # Принудительная проверка SSL-сертификата
@@ -705,7 +775,15 @@ def fix_selected_text(hwnd: int, hk_cfg: dict) -> None:
             log.info("Уже идёт обработка, пропускаю")
             return
         _processing = True
-        initial_clip = pyperclip.paste()  # сохраняем исходное содержимое буфера ВНУТРИ мьютекса
+        # Сохраняем исходный буфер — только если это текст (CF_UNICODETEXT)
+        initial_clip = ""
+        try:
+            if user32.IsClipboardFormatAvailable(CF_UNICODETEXT):
+                initial_clip = pyperclip.paste()
+        except Exception as e:
+            log.warning("Не удалось сохранить буфер обмена: %s", e)
+            initial_clip = ""
+
     hk_limit = hk_cfg.get("max_text_length", MAX_TEXT_LENGTH)
 
     try:
@@ -726,6 +804,11 @@ def fix_selected_text(hwnd: int, hk_cfg: dict) -> None:
             )
             return
 
+        # Пустой или пробельный текст — не отправляем в API
+        if not text.strip():
+            log.info("Выделенный текст пуст или содержит только пробелы, пропускаю")
+            return
+
         # Проверка лимита символов — текст НЕ отправляется, если превышен
         if len(text) > hk_limit:
             notify_warning(
@@ -737,7 +820,7 @@ def fix_selected_text(hwnd: int, hk_cfg: dict) -> None:
             )
             return
 
-        log.info("Текст (%d символов): %.100s", len(text), text)
+        log.info("Текст (%d символов): %.20s", len(text), text)
 
         try:
             corrected = correct_text(
@@ -745,11 +828,13 @@ def fix_selected_text(hwnd: int, hk_cfg: dict) -> None:
                 model=hk_cfg["model"],
                 system_prompt=hk_cfg["system_prompt"],
                 temperature=hk_cfg["temperature"],
+                max_retries=hk_cfg.get("max_retries", MAX_RETRIES),
             )
         except Exception as exc:
-            # Санитизация: не раскрываем внутренние детали ошибки пользователю
+            # Полный текст ошибки — в лог (для диагностики)
+            log.error("Полная ошибка API: %s", exc)
+            # Санитизация: не раскрываем внутренние детали пользователю
             safe_msg = str(exc)
-            # Удаляем пути к файлам, URL-ы, IP-адреса и технические детали
             safe_msg = re.sub(r'https?://\S+', '[URL]', safe_msg)
             safe_msg = re.sub(r'[A-Za-z]:\\[^\s"\']+', '[path]', safe_msg)
             safe_msg = re.sub(r'\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b', '[ip]', safe_msg)
@@ -761,7 +846,14 @@ def fix_selected_text(hwnd: int, hk_cfg: dict) -> None:
             )
             return
 
-        if corrected == text:
+        if not corrected:
+            notify_warning(
+                "⚠️ Пустой ответ от API",
+                "API вернул пустой текст. Вставка не выполняется.",
+            )
+            return
+
+        if corrected.strip() == text.strip():
             notify_info(
                 "✅ Текст без ошибок",
                 "Текст не содержит ошибок — вставка не требуется.",
@@ -769,7 +861,7 @@ def fix_selected_text(hwnd: int, hk_cfg: dict) -> None:
             )
             return
 
-        log.info("Исправлено (%d символов): %.100s", len(corrected), corrected)
+        log.info("Исправлено (%d символов): %.20s", len(corrected), corrected)
 
         # Устанавливаем исправленный текст в буфер БЕЗ сохранения в историю
         if not set_clipboard_no_history(corrected):
@@ -789,13 +881,14 @@ def fix_selected_text(hwnd: int, hk_cfg: dict) -> None:
         )
 
     finally:
-        # Восстанавливаем исходный буфер БЕЗ сохранения в историю
-        if not set_clipboard_no_history(initial_clip):
-            log.warning("Не удалось восстановить буфер без истории, пробую обычный способ")
-            try:
-                pyperclip.copy(initial_clip)
-            except Exception as e:
-                log.error("Не удалось восстановить буфер обмена вообще: %s", e)
+        # Восстанавливаем исходный буфер (только если он был текстовым)
+        if initial_clip:
+            if not set_clipboard_no_history(initial_clip):
+                log.warning("Не удалось восстановить буфер без истории, пробую обычный способ")
+                try:
+                    pyperclip.copy(initial_clip)
+                except Exception as e:
+                    log.error("Не удалось восстановить буфер обмена вообще: %s", e)
         with _processing_lock:
             _processing = False
 
@@ -933,36 +1026,22 @@ def _kill_previous_instance() -> bool:
         except (ValueError, OSError):
             pass
 
-    # 2) Ищем по имени процесса: сначала AutoCorrector.exe, потом pythonw.exe
-    for imagename in ("AutoCorrector.exe", "pythonw.exe"):
-        try:
-            result = subprocess.run(
-                ["tasklist", "/FI", f"IMAGENAME eq {imagename}", "/FO", "CSV", "/NH"],
-                capture_output=True, text=True, encoding="cp866", errors="replace",
-            )
-            for line in result.stdout.strip().splitlines():
-                parts = line.replace('"', '').split(",")
-                if len(parts) >= 2:
-                    pid = int(parts[1])
-                    # Для AutoCorrector.exe — это он, убиваем сразу
-                    if imagename.lower() == "autocorrector.exe":
-                        subprocess.run(["taskkill", "/F", "/PID", str(pid)], capture_output=True)
-                        time.sleep(0.5)
-                        log.info("Завершён предыдущий AutoCorrector.exe (PID %d)", pid)
-                        return True
-                    # Для pythonw.exe — проверяем командную строку
-                    cmd_result = subprocess.run(
-                        ["powershell", "-Command",
-                         f"(Get-CimInstance Win32_Process -Filter \"ProcessId={pid}\").CommandLine"],
-                        capture_output=True, text=True, encoding="utf-8", errors="replace",
-                    )
-                    if "main.py" in (cmd_result.stdout or "").lower():
-                        subprocess.run(["taskkill", "/F", "/PID", str(pid)], capture_output=True)
-                        time.sleep(0.5)
-                        log.info("Завершён предыдущий экземпляр (PID %d, обнаружен по CommandLine)", pid)
-                        return True
-        except (ValueError, OSError):
-            pass
+    # 2) Ищем по имени процесса: только AutoCorrector.exe (безопасно)
+    try:
+        result = subprocess.run(
+            ["tasklist", "/FI", "IMAGENAME eq AutoCorrector.exe", "/FO", "CSV", "/NH"],
+            capture_output=True, text=True, encoding="cp866", errors="replace",
+        )
+        for line in result.stdout.strip().splitlines():
+            parts = line.replace('"', '').split(",")
+            if len(parts) >= 2:
+                pid = int(parts[1])
+                subprocess.run(["taskkill", "/F", "/PID", str(pid)], capture_output=True)
+                time.sleep(0.5)
+                log.info("Завершён предыдущий AutoCorrector.exe (PID %d)", pid)
+                return True
+    except (ValueError, OSError):
+        pass
 
     return False
 
@@ -1043,13 +1122,13 @@ def main() -> None:
     signal.signal(signal.SIGINT, _signal_shutdown)
     signal.signal(signal.SIGTERM, _signal_shutdown)
 
-    log.info("AutoCorrector запущен. Зарегистрировано горячих клавиш: %d", len(registered_ids))
+    log.info("AutoCorrector v%s запущен. Зарегистрировано горячих клавиш: %d", __version__, len(registered_ids))
     log.info("Выделите текст → нажмите комбинацию клавиш")
     hotkey_names = ", ".join(
         _build_hotkey_description(hk) for hk in HOTKEYS
     )
     notify_info(
-        "🚀 AutoCorrector готов к работе",
+        f"🚀 AutoCorrector v{__version__} готов к работе",
         f"Горячие клавиши: {hotkey_names}\n"
         f"Выделите текст → нажмите комбинацию клавиш.",
         category="on_startup",
@@ -1203,10 +1282,16 @@ def _setup_cli() -> None:
     if args.silent:
         return
 
-    # Интерактивная проверка автозагрузки
+    # Интерактивная проверка автозагрузки (только если есть консоль)
+    if not sys.stdin or not sys.stdin.isatty():
+        return
+
     if _is_autostart_active():
         print("\n⚠️  AutoCorrector уже добавлен в автозагрузку Windows.")
-        answer = input("   Убрать из автозагрузки? (Да/Нет): ").strip().lower()
+        try:
+            answer = input("   Убрать из автозагрузки? (Да/Нет): ").strip().lower()
+        except (EOFError, OSError):
+            return
         if answer in ("y", "д", "да", "yes"):
             unregister_autostart()
             print()
@@ -1214,7 +1299,10 @@ def _setup_cli() -> None:
             print("   Автозагрузка оставлена без изменений.\n")
     else:
         print("\nℹ️  AutoCorrector НЕ добавлен в автозагрузку Windows.")
-        answer = input("   Добавить в автозагрузку? (Да/Нет): ").strip().lower()
+        try:
+            answer = input("   Добавить в автозагрузку? (Да/Нет): ").strip().lower()
+        except (EOFError, OSError):
+            return
         if answer in ("y", "д", "да", "yes"):
             register_autostart()
             print()
@@ -1249,8 +1337,70 @@ def _setup_crash_handler() -> None:
 
     sys.excepthook = _crash_hook
 
+    # Обработчик ошибок в потоках (threading.Thread)
+    _original_thread_hook = threading.excepthook if hasattr(threading, 'excepthook') else None
+
+    def _thread_crash_hook(args):
+        msg = "".join(traceback.format_exception(args.exc_type, args.exc_value, args.exc_traceback))
+        try:
+            with open(CRASH_LOG, "a", encoding="utf-8") as fh:
+                fh.write(f"\n{'='*60}\n")
+                fh.write(f"THREAD CRASH: {time.strftime('%Y-%m-%d %H:%M:%S')} "
+                         f"[thread={args.thread.name}]\n")
+                fh.write(msg)
+                fh.write(f"{'='*60}\n")
+        except Exception:
+            pass
+        log.error("Ошибка в потоке %s: %s", args.thread.name, msg)
+        if _original_thread_hook:
+            _original_thread_hook(args)
+
+    threading.excepthook = _thread_crash_hook
+
+
+# =========================
+# ПРОВЕРКА ОБНОВЛЕНИЙ
+# =========================
+
+_GITHUB_RAW_URL = "https://raw.githubusercontent.com/fecatt/AutoCorrector/main/main.py"
+
+
+def _check_for_updates() -> None:
+    """Проверяет наличие обновлений на GitHub и показывает уведомление."""
+    if not _notif_cfg.get("check_updates", True):
+        return
+    try:
+        response = requests.get(_GITHUB_RAW_URL, timeout=5)
+        response.raise_for_status()
+        # Извлекаем __version__ из удалённого файла
+        match = re.search(r'__version__\s*=\s*["\']([^"\']+)["\']', response.text)
+        if not match:
+            return
+        remote_version = match.group(1)
+        if remote_version != __version__:
+            try:
+                toast(
+                    "🔄 Доступно обновление",
+                    f"Текущая версия: v{__version__}\n"
+                    f"Новая версия: v{remote_version}\n\n"
+                    f"Нажмите на это уведомление для скачивания.",
+                    app_id="AutoCorrector",
+                    arguments="https://github.com/fecatt/AutoCorrector",
+                )
+            except Exception:
+                notify_info(
+                    "🔄 Доступно обновление",
+                    f"Текущая версия: v{__version__}\n"
+                    f"Новая версия: v{remote_version}\n\n"
+                    f"Скачайте: https://github.com/fecatt/AutoCorrector",
+                )
+    except Exception as e:
+        log.debug("Не удалось проверить обновления: %s", e)
+
 
 if __name__ == "__main__":
     _setup_crash_handler()
     _setup_cli()
+    # Проверка обновлений в отдельном потоке, чтобы не блокировать запуск
+    threading.Thread(target=_check_for_updates, daemon=True).start()
     main()
