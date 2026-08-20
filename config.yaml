@@ -1,0 +1,76 @@
+# =========================
+# Конфигурация AutoCorrector
+# =========================
+
+# Настройки API (defaults — можно переопределить для каждой горячей клавиши)
+api:
+  key: ""  # Вставьте ваш API-ключ сюда
+  url: "https://openrouter.ai/api/v1/chat/completions"
+  model: "google/gemma-4-31b-it"
+  temperature: 0.3
+  timeout: 60
+  # Прокси-сервер для API-запросов (например "http://user:pass@host:port" или "" для прямого подключения)
+  proxy: ""
+  system_prompt: |
+    You are a professional text proofreader and editor.
+    Correct spelling, punctuation, grammar, and style errors in the text.
+    Preserve the original meaning, tone, and structure.
+    Do not add any explanations or commentary.
+    Return only the corrected text.
+
+# Лимиты обработки текста
+limits:
+  # Максимальная длина текста — сообщения длиннее этого лимита отклоняются
+  max_text_length: 8000
+  # Максимальное количество попыток при вызове API
+  max_retries: 3
+
+# Логирование
+logging:
+  level: "INFO"
+  # Укажите путь к файлу для записи логов, или null для вывода только в консоль
+  file: null
+
+# Уведомления (Windows toast-уведомления)
+# Отключать можно только информационные (системные) уведомления.
+# Уведомления об ошибках и предупреждениях показываются всегда.
+notifications:
+  on_startup: true             # При запуске программы ("AutoCorrector запущен")
+  on_processing_start: true    # Начало обработки текста ("Обработка [name]...")
+  on_success: true             # Текст исправлен успешно ("Текст исправлен ✓")
+  on_no_changes: true          # Текст не содержит ошибок ("Без изменений")
+
+# Горячие клавиши — каждая комбинация может переопределять model, system_prompt,
+# temperature и другие настройки API из секции [api] выше.
+#
+# Модификаторы: ctrl, alt, shift, win (любая комбинация, все опциональны)
+# Key: любая буква (a-z), цифра (0-9), функциональная клавиша (f1-f24),
+#      или специальное имя (space, escape, insert, delete, home, end,
+#      pageup, pagedown, left, right, up, down, plus, comma, period и т.д.)
+#
+# Все поля внутри записи горячей клавиши опциональны — если не заданы,
+# используются глобальные значения api.*.
+hotkeys:
+  - name: "Коррекция текста"
+    ctrl: true
+    alt: true
+    shift: false
+    win: false
+    key: "g"
+    # model: "google/gemma-4-31b-it"
+    # temperature: 0.3
+    # system_prompt: |
+    #   Свой промт для этой комбинации...
+
+  # Пример второй комбинации — для рерайта / перевода и т.д.
+  # - name: "Рерайт"
+  #   ctrl: true
+  #   alt: true
+  #   shift: true
+  #   win: false
+  #   key: "g"
+  #   model: "anthropic/claude-3-haiku"
+  #   temperature: 0.7
+  #   system_prompt: |
+  #     Ты помощник по рерайтингу. Перефразируй текст,
+  #     сохраняя смысл, но меняя стилистику.
