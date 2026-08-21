@@ -1365,18 +1365,18 @@ def _check_for_updates() -> None:
             try:
                 toast(
                     "🔄 Доступно обновление",
+                    f"Нажмите на уведомление, чтобы перейти к скачиванию обновления.\n"
                     f"Текущая версия: v{__version__}\n"
-                    f"Новая версия: v{remote_version}\n\n"
-                    f"Нажмите на это уведомление для скачивания.",
+                    f"Новая версия: v{remote_version}",
                     app_id="AutoCorrector",
-                    arguments="https://github.com/fecatt/AutoCorrector",
+                    on_click="https://github.com/fecatt/AutoCorrector",
                 )
             except Exception:
                 notify_info(
                     "🔄 Доступно обновление",
                     f"Текущая версия: v{__version__}\n"
                     f"Новая версия: v{remote_version}\n\n"
-                    f"Скачайте: https://github.com/fecatt/AutoCorrector",
+                    f"Перейдите по ссылке для скачивания:\nhttps://github.com/fecatt/AutoCorrector",
                 )
     except Exception as e:
         log.debug("Не удалось проверить обновления: %s", e)
