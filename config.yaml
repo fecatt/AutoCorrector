@@ -52,7 +52,7 @@ notifications:
 # Все поля внутри записи горячей клавиши опциональны — если не заданы,
 # используются глобальные значения api.*.
 hotkeys:
-  - name: "Correction"
+  - name: "Исправление ошибок"
     ctrl: true
     alt: true
     shift: false
@@ -64,7 +64,7 @@ hotkeys:
     #   Свой промт для этой комбинации...
 
   # Пример второй комбинации — для рерайта / перевода и т.д.
-  # - name: "Reroll"
+  # - name: "Перевод текста"
   #   ctrl: true
   #   alt: true
   #   shift: true
@@ -73,5 +73,9 @@ hotkeys:
   #   model: "anthropic/claude-3-haiku"
   #   temperature: 0.7
   #   system_prompt: |
-  #     Ты помощник по рерайтингу. Перефразируй текст,
-  #     сохраняя смысл, но меняя стилистику.
+  #     You are a professional translator. Detect the language of the input text.
+  #     If the text is in Russian, translate it to English.
+  #     If the text is NOT in Russian (i.e., any other language), translate it to Russian.
+  #     Preserve the original meaning, tone, and style.
+  #     Do not add any explanations, notes, or extra text.
+  #     Return only the translated text.

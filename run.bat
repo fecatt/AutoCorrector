@@ -17,7 +17,6 @@ if errorlevel 1 (
 
 :: Проверяем и устанавливаем зависимости автоматически
 echo.
-echo Проверка зависимостей...
 python -c "import requests, yaml, pyperclip" >nul 2>&1
 if errorlevel 1 (
     echo Установка недостающих библиотек...
