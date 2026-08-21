@@ -8,7 +8,7 @@ AutoCorrector — автоисправление текста через OpenRou
 Конфигурация хранится в config.yaml рядом со скриптом.
 """
 
-__version__ = "1.1.1"
+__version__ = "1.0.1"
 
 import os
 import re
