@@ -18,12 +18,14 @@
 
 ### What is it
 
-AutoCorrector is a system-wide text correction tool powered by AI (OpenRouter API). Select text in any application → press a hotkey → the program copies the text, sends it for correction, and pastes the corrected version back — replacing your selection in place.
+AutoCorrector is a system-wide text correction tool powered by AI. Select text in any application → press a hotkey → the program copies the text, sends it for correction, and pastes the corrected version back — replacing your selection in place.
 
 **Features:**
 
 - **System-wide hotkeys** — works in any application (Notepad, Word, browser, messengers…)
 - **Multiple hotkey profiles** — each combination can use a different AI model, prompt, and temperature
+- **No API key required** — works out of the box with the built-in API router
+- **Bring your own API** — optionally configure your own API key (OpenRouter, OpenAI, etc.)
 - **Clipboard preservation** — restores your original clipboard content after correction
 - **Clipboard history-safe** — corrected text is pasted without polluting Win+V history
 - **Autostart** — can launch automatically at Windows login (background, no console window)
@@ -34,7 +36,6 @@ AutoCorrector is a system-wide text correction tool powered by AI (OpenRouter AP
 
 - Windows 10 or 11
 - Python 3.10+
-- An [OpenRouter](https://openrouter.ai) API key
 
 ### Quick Start
 
@@ -44,21 +45,31 @@ AutoCorrector is a system-wide text correction tool powered by AI (OpenRouter AP
    cd AutoCorrector
    ```
 
-2. Open [`config.yaml`](config.yaml) and enter your API key:
+2. Double-click [`run.bat`](run.bat).
+
+3. Select text in any window → press **Ctrl+Alt+G** → the text is corrected in place.
+
+> 💡 **No API key needed!** The program uses a built-in API router by default. Just launch and use.
+
+### Using Your Own API
+
+If you want to use your own API provider (OpenRouter, OpenAI, etc.) instead of the built-in router:
+
+1. Open [`config.yaml`](config.yaml)
+2. Set your API key and URL:
    ```yaml
    api:
      key: "sk-or-v1-..."
+     url: "https://openrouter.ai/api/v1/chat/completions"
+     model: "google/gemma-4-31b-it"
    ```
-
-3. Double-click [`run.bat`](run.bat).
-
-4. Select text in any window → press **Ctrl+Alt+G** → the text is corrected in place.
+3. Restart the program.
 
 ### Configuration
 
 | Section | Description |
 |---------|-------------|
-| `api.*` | API key, URL, model, temperature, timeout, proxy, system prompt |
+| `api.*` | API key, URL, model, temperature, timeout, proxy, system prompt (optional — built-in router works without configuration) |
 | `limits.*` | Max text length, max retries |
 | `logging.*` | Log level, log file |
 | `notifications.*` | Toggle individual notification types |
@@ -102,14 +113,6 @@ hotkeys:
 - **Install** — double-click [`run.bat`](run.bat) → select "Add to autostart" when prompted
 - **Uninstall** — double-click [`run.bat`](run.bat) → select "Remove from autostart" when prompted
 
-#### Getting an OpenRouter API Key
-
-1. Go to [openrouter.ai](https://openrouter.ai)
-2. Sign up / log in
-3. Add credits: **Settings** → **Credits**
-4. Go to **Keys** → **Create Key**
-5. Copy the key into [`config.yaml`](config.yaml) → `api.key`
-
 ### How It Works (Step by Step)
 
 1. **Select text** in any application (Notepad, Word, browser, messenger…)
@@ -129,7 +132,7 @@ All notifications are shown in Russian. Below are the actual messages with their
 | «❌ Горячая клавиша не зарегистрирована» | Hotkey combination is taken by another program | Change the combination in [`config.yaml`](config.yaml) |
 | «⚠️ Превышен лимит текста» | Text is longer than `max_text_length` | Shorten the text or increase the limit |
 | «❌ Не удалось скопировать текст» | Text is not selected or the app doesn't support copying | Make sure text is selected |
-| «❌ Ошибка при обращении к API» | Internet issues or invalid API key | Check your connection and API key in [`config.yaml`](config.yaml) |
+| «❌ Ошибка при обращении к API» | Internet issues or invalid API key | Check your connection and API settings in [`config.yaml`](config.yaml) |
 | «✅ Текст без ошибок» | Text has no errors | Everything is fine, no paste needed |
 | «✅ Текст исправлен» | Text was corrected and pasted back | — |
 | «❌ Ошибка буфера обмена» | Failed to paste corrected text to clipboard | Restart the program |
@@ -163,12 +166,14 @@ This project is licensed under the [MIT License](LICENSE).
 
 ### Что это
 
-AutoCorrector — программа для автоматического исправления текста через AI (OpenRouter API). Выделяете текст в любом приложении → нажимаете горячую клавишу → программа копирует текст, отправляет на коррекцию и вставляет исправленный обратно.
+AutoCorrector — программа для автоматического исправления текста через AI. Выделяете текст в любом приложении → нажимаете горячую клавишу → программа копирует текст, отправляет на коррекцию и вставляет исправленный обратно.
 
 **Возможности:**
 
 - **Горячие клавиши на уровне системы** — работает в любом приложении (Блокнот, Word, браузер, мессенджеры…)
 - **Несколько профилей горячих клавиш** — каждая комбинация может использовать свою модель AI, промт и температуру
+- **Не нужен API-ключ** — работает сразу благодаря встроенному API-роутеру
+- **Свой API** — при желании можно настроить свой API-ключ (OpenRouter, OpenAI и др.)
 - **Сохранение буфера обмена** — исходное содержимое буфера восстанавливается после исправления
 - **Без засорения истории** — исправленный текст вставляется без сохранения в историю Win+V
 - **Автозагрузка** — может автоматически запускаться при входе в Windows (в фоне, без окна консоли)
@@ -178,7 +183,6 @@ AutoCorrector — программа для автоматического ис�
 
 - Windows 10 или 11
 - Python 3.10+
-- API-ключ [OpenRouter](https://openrouter.ai)
 
 ### Быстрый старт
 
@@ -188,21 +192,31 @@ AutoCorrector — программа для автоматического ис�
    cd AutoCorrector
    ```
 
-2. Откройте [`config.yaml`](config.yaml) и укажите ваш API-ключ:
+2. Запустите [`run.bat`](run.bat).
+
+3. Выделите текст в любом окне → нажмите **Ctrl+Alt+G** → текст исправится на месте.
+
+> 💡 **API-ключ не нужен!** Программа использует встроенный API-роутер по умолчанию. Просто запустите и пользуйтесь.
+
+### Использование своего API
+
+Если вы хотите использовать свой провайдер API (OpenRouter, OpenAI и др.) вместо встроенного роутера:
+
+1. Откройте [`config.yaml`](config.yaml)
+2. Укажите ваш API-ключ и URL:
    ```yaml
    api:
      key: "sk-or-v1-..."
+     url: "https://openrouter.ai/api/v1/chat/completions"
+     model: "google/gemma-4-31b-it"
    ```
-
-3. Запустите [`run.bat`](run.bat).
-
-4. Выделите текст в любом окне → нажмите **Ctrl+Alt+G** → текст исправится на месте.
+3. Перезапустите программу.
 
 ### Конфигурация
 
 | Секция | Описание |
 |--------|----------|
-| `api.*` | API-ключ, URL, модель, температура, таймаут, прокси, системный промт |
+| `api.*` | API-ключ, URL, модель, температура, таймаут, прокси, системный промт (необязательно — встроенный роутер работает без настройки) |
 | `limits.*` | Макс. длина текста, макс. количество попыток |
 | `logging.*` | Уровень логирования, файл логов |
 | `notifications.*` | Включение/отключение отдельных типов уведомлений |
@@ -246,14 +260,6 @@ hotkeys:
 - **Установка** — запустите [`run.bat`](run.bat) → выберите «Добавить в автозагрузку»
 - **Удаление** — запустите [`run.bat`](run.bat) → выберите «Убрать из автозагрузки»
 
-#### Получение API-ключа OpenRouter
-
-1. Зайдите на [openrouter.ai](https://openrouter.ai)
-2. Зарегистрируйтесь / войдите
-3. Пополните баланс: **Settings** → **Credits**
-4. Перейдите в **Keys** → **Create Key**
-5. Скопируйте ключ и вставьте в [`config.yaml`](config.yaml) → `api.key`
-
 ### Как это работает (пошагово)
 
 1. **Выделите текст** в любом приложении (Блокнот, Word, браузер, мессенджер…)
@@ -271,7 +277,7 @@ hotkeys:
 | «Не удалось зарегистрировать горячую клавишу» | Комбинация занята другой программой | Измените комбинацию в [`config.yaml`](config.yaml) |
 | «Превышен допустимый лимит» | Текст длиннее `max_text_length` | Сократите текст или увеличьте лимит |
 | «Не удалось скопировать выделенный текст» | Текст не выделен или приложение не поддерживает копирование | Убедитесь, что текст выделен |
-| «Ошибка API» | Проблемы с интернетом или неверный ключ | Проверьте подключение и API-ключ |
+| «Ошибка API» | Проблемы с интернетом или неверные настройки API | Проверьте подключение и настройки API в [`config.yaml`](config.yaml) |
 | «Без изменений» | Текст не содержит ошибок | Всё в порядке, вставка не нужна |
 
 ### Структура файлов

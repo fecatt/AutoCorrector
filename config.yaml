@@ -2,15 +2,15 @@
 # Конфигурация AutoCorrector
 # =========================
 
-# Настройки API (defaults — можно переопределить для каждой горячей клавиши)
+# Настройки API (необязательно — по умолчанию используется встроенный роутер).
+# Если хотите использовать свой API (OpenRouter, OpenAI и др.), заполните key и url.
 api:
-  key: ""  # Вставьте ваш API-ключ сюда
-  url: "https://openrouter.ai/api/v1/chat/completions"
-  model: "google/gemma-4-31b-it"
+  key: ""       # Ваш API-ключ (пусто = встроенный роутер, ключ не нужен)
+  url: ""       # URL API (пусто = встроенный роутер). Пример: "https://openrouter.ai/api/v1/chat/completions"
+  model: ""     # Модель (пусто = модель по умолчанию). Пример: "google/gemma-4-31b-it"
   temperature: 0.3
   timeout: 60
-  # Прокси-сервер для API-запросов (например "https://user:pass@host:port" или "" для прямого подключения)
-  proxy: ""
+  proxy: ""     # Прокси-сервер для API-запросов (например "https://user:pass@host:port" или "" для прямого подключения)
   system_prompt: |
     You are a professional text proofreader and editor.
     Correct spelling, punctuation, grammar, and style errors in the text.
@@ -31,11 +31,11 @@ logging:
   # Укажите путь к файлу для записи логов, или null для вывода только в консоль
   file: null
 
-# Уведомления (Windows toast-уведомления)
+# Уведомления (Windows toast-уведомления, не будут работать на старых версиях Windows)
 # Отключать можно только информационные (системные) уведомления.
 # Уведомления об ошибках и предупреждениях показываются всегда.
 notifications:
-  on_startup: false             # При запуске программы ("AutoCorrector запущен")
+  on_startup: false            # При запуске программы ("AutoCorrector запущен")
   on_processing_start: true    # Начало обработки текста ("Обработка [name]...")
   on_success: true             # Текст исправлен успешно ("Текст исправлен ✓")
   on_no_changes: true          # Текст не содержит ошибок ("Без изменений")

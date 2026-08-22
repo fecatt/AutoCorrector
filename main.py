@@ -1,5 +1,5 @@
 """
-AutoCorrector — автоисправление текста через OpenRouter API.
+AutoCorrector — автоисправление текста через LLM API.
 
 Выделите текст в любом приложении → нажмите комбинацию клавиш →
 программа скопирует текст, отправит на коррекцию и вставит исправленный
@@ -8,7 +8,7 @@ AutoCorrector — автоисправление текста через OpenRou
 Конфигурация хранится в config.yaml рядом со скриптом.
 """
 
-__version__ = "1.0.1"
+__version__ = "1.0.2"
 
 import os
 import re
@@ -98,16 +98,14 @@ def _load_config() -> dict:
         print("ОШИБКА: config.yaml должен содержать словарь на верхнем уровне.")
         sys.exit(1)
 
-    # Валидация обязательных полей
-    api_cfg = cfg.get("api", {})
-    if not api_cfg.get("key"):
-        print("ОШИБКА: API ключ не задан. Откройте config.yaml и укажите поле api.key.")
-        sys.exit(1)
-
+    # API ключ не обязателен — по умолчанию используется встроенный роутер
     return cfg
 
 
 _CFG = _load_config()
+
+
+DEFAULT_API_URL = "https://router.sayaka.ru/api/v1/chat/completions"
 
 # ── Валидация конфигурации ────────────────────────────────────
 def _validate_config(cfg: dict) -> None:
@@ -115,7 +113,7 @@ def _validate_config(cfg: dict) -> None:
     api_cfg = cfg.get("api", {})
 
     # Проверка API URL — только HTTPS
-    url = api_cfg.get("url", "https://openrouter.ai/api/v1/chat/completions")
+    url = api_cfg.get("url", DEFAULT_API_URL)
     if not url.startswith("https://"):
         print(
             f"ОШИБКА: API URL должен использовать HTTPS.\n"
@@ -174,10 +172,9 @@ def _validate_config(cfg: dict) -> None:
         )
         sys.exit(1)
 
-    # Проверка API ключа — уже выполнена в _load_config()
-    # (дополнительная проверка на неполный ключ)
+    # Проверка API ключа — только если ключ указан
     key = api_cfg.get("key", "")
-    if key.startswith("sk-or-v1-") and len(key) < 20:
+    if key and key.startswith("sk-or-v1-") and len(key) < 20:
         print("ОШИБКА: API ключ выглядит неполным. Проверьте значение api.key в config.yaml.")
         sys.exit(1)
 
@@ -186,7 +183,7 @@ _validate_config(_CFG)
 
 # ── Глобальные настройки API (defaults) ──────────────────────
 OPENROUTER_API_KEY: str = _CFG["api"]["key"]
-API_URL: str = _CFG["api"].get("url", "https://openrouter.ai/api/v1/chat/completions")
+API_URL: str = _CFG["api"].get("url", DEFAULT_API_URL)
 API_MODEL: str = _CFG["api"].get("model", "google/gemma-4-31b-it")
 API_TEMPERATURE: float = _CFG["api"].get("temperature", 0)
 API_TIMEOUT: int = _CFG["api"].get("timeout", 60)
@@ -689,11 +686,12 @@ def correct_text(
     temperature: float = API_TEMPERATURE,
     max_retries: int = MAX_RETRIES,
 ) -> str:
-    """Отправляет текст на коррекцию через OpenRouter API."""
+    """Отправляет текст на коррекцию через LLM API."""
     headers = {
-        "Authorization": f"Bearer {OPENROUTER_API_KEY}",
         "Content-Type": "application/json",
     }
+    if OPENROUTER_API_KEY:
+        headers["Authorization"] = f"Bearer {OPENROUTER_API_KEY}"
     data = {
         "model": model,
         "messages": [
@@ -1235,7 +1233,7 @@ def _setup_cli() -> None:
     Если аргументов нет — проверяет реестр и спрашивает пользователя.
     """
     parser = argparse.ArgumentParser(
-        description="AutoCorrector — автоисправление текста через OpenRouter API",
+        description="AutoCorrector — автоисправление текста через LLM API",
     )
     parser.add_argument(
         "--install",
