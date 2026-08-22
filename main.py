@@ -8,7 +8,7 @@ AutoCorrector — автоисправление текста через LLM API
 Конфигурация хранится в config.yaml рядом со скриптом.
 """
 
-__version__ = "1.0.2"
+__version__ = "1.0.3"
 
 import os
 import re
@@ -98,7 +98,7 @@ def _load_config() -> dict:
         print("ОШИБКА: config.yaml должен содержать словарь на верхнем уровне.")
         sys.exit(1)
 
-    # API ключ не обязателен — по умолчанию используется встроенный роутер
+    # API ключ обязателен — проверяется в _validate_config()
     return cfg
 
 
@@ -113,7 +113,7 @@ def _validate_config(cfg: dict) -> None:
     api_cfg = cfg.get("api", {})
 
     # Проверка API URL — только HTTPS
-    url = api_cfg.get("url", DEFAULT_API_URL)
+    url = api_cfg.get("url", "") or DEFAULT_API_URL
     if not url.startswith("https://"):
         print(
             f"ОШИБКА: API URL должен использовать HTTPS.\n"
@@ -172,19 +172,34 @@ def _validate_config(cfg: dict) -> None:
         )
         sys.exit(1)
 
-    # Проверка API ключа — только если ключ указан
+    # Проверка API ключа — обязателен (free-key или реальный ключ)
     key = api_cfg.get("key", "")
-    if key and key.startswith("sk-or-v1-") and len(key) < 20:
-        print("ОШИБКА: API ключ выглядит неполным. Проверьте значение api.key в config.yaml.")
+    if not key:
+        print(
+            "ОШИБКА: API ключ отсутствует.\n"
+            "  Укажите api.key в config.yaml.\n"
+            "  Используйте \"free-key\" для встроенного роутера\n"
+            "  или ваш личный ключ (например \"sk-or-v1-...\")."
+        )
+        sys.exit(1)
+
+    # Проверка модели — обязательна
+    model = api_cfg.get("model", "")
+    if not model:
+        print(
+            "ОШИБКА: Модель не указана.\n"
+            "  Укажите api.model в config.yaml.\n"
+            "  Пример: \"google/gemma-4-31b-it\"."
+        )
         sys.exit(1)
 
 
 _validate_config(_CFG)
 
 # ── Глобальные настройки API (defaults) ──────────────────────
-OPENROUTER_API_KEY: str = _CFG["api"]["key"]
-API_URL: str = _CFG["api"].get("url", DEFAULT_API_URL)
-API_MODEL: str = _CFG["api"].get("model", "google/gemma-4-31b-it")
+OPENROUTER_API_KEY: str = _CFG["api"].get("key", "")
+API_URL: str = _CFG["api"].get("url", "") or DEFAULT_API_URL
+API_MODEL: str = _CFG["api"].get("model", "") or "google/gemma-4-31b-it"
 API_TEMPERATURE: float = _CFG["api"].get("temperature", 0)
 API_TIMEOUT: int = _CFG["api"].get("timeout", 60)
 API_PROXY: str = _CFG["api"].get("proxy", "")
@@ -391,7 +406,7 @@ def notify_error(title: str, text: str) -> None:
     """Показать уведомление об ошибке (с звуком). Всегда показывается."""
     log.error("%s: %s", title, text)
     try:
-        toast(title, text, app_id="AutoCorrector", audio="ms-winsoundevent:Notification.Looping.Alarm")
+        toast(title, text, app_id="AutoCorrector", audio="ms-winsoundevent:Notification.Default")
     except Exception as e:
         log.debug("Не удалось показать уведомление: %s", e)
 

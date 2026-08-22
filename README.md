@@ -1,4 +1,4 @@
-# AutoCorrector v1.0
+# AutoCorrector
 
 ![Platform](https://img.shields.io/badge/platform-Windows%2010%2F11-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)

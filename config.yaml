@@ -2,12 +2,11 @@
 # Конфигурация AutoCorrector
 # =========================
 
-# Настройки API (необязательно — по умолчанию используется встроенный роутер).
-# Если хотите использовать свой API (OpenRouter, OpenAI и др.), заполните key и url.
+# Настройки API.
 api:
-  key: ""       # Ваш API-ключ (пусто = встроенный роутер, ключ не нужен)
-  url: ""       # URL API (пусто = встроенный роутер). Пример: "https://openrouter.ai/api/v1/chat/completions"
-  model: ""     # Модель (пусто = модель по умолчанию). Пример: "google/gemma-4-31b-it"
+  key: "free-key"       # "free-key" = встроенный роутер, или ваш ключ (sk-or-v1-...)
+  url: ""       # URL API (пусто = встроенный роутер). Вставьте "https://openrouter.ai/api/v1/chat/completions"
+  model: "nvidia/nemotron-3-ultra-550b-a55b:free"
   temperature: 0.3
   timeout: 60
   proxy: ""     # Прокси-сервер для API-запросов (например "https://user:pass@host:port" или "" для прямого подключения)
